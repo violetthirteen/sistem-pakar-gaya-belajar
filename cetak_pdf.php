@@ -1,22 +1,36 @@
 <?php
-require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 require_once 'koneksi.php';
 date_default_timezone_set("Asia/Jakarta");
 
 use Mpdf\Mpdf;
 
+// Cek parameter ID
 if (!isset($_GET['id'])) {
     die('ID tidak ditemukan.');
 }
+
 $id = $_GET['id'];
+
+// Ambil data diagnosa
 $q = mysqli_query($koneksi, "SELECT * FROM riwayat_diagnosa WHERE id = '$id'");
 $data = mysqli_fetch_assoc($q);
 
-// Ambil rekomendasi berdasarkan hasil
-$hasil = $data['hasil'];
+// Ambil nama mahasiswa berdasarkan NIM
+$nim = $data['nim'];
+$getNama = mysqli_query($koneksi, "SELECT nama FROM mahasiswa WHERE nim = '$nim'");
+$mahasiswa = mysqli_fetch_assoc($getNama);
+$nama_mahasiswa = $mahasiswa['nama'];
+
+// Ambil detail gaya belajar
+$hasil = $data['gaya_belajar'];
 $det = mysqli_query($koneksi, "SELECT * FROM gaya_belajar WHERE nama_gaya = '$hasil'");
 $detail = mysqli_fetch_assoc($det);
 
+// Format waktu diagnosa lengkap
+$waktu_diagnosa = date("d/m/Y H:i:s", strtotime($data['tanggal']));
+
+// Bangun HTML
 $html = '
 <html>
 <head>
@@ -35,19 +49,21 @@ $html = '
     <h2>Hasil Diagnosa Gaya Belajar</h2>
     <div class="box">
         <table>
-            <tr><td class="label">Nama Mahasiswa</td><td class="content">' . $data['nama_mahasiswa'] . '</td></tr>
-            <tr><td class="label">Tanggal Diagnosa</td><td class="content">' . $data['tanggal'] . '</td></tr>
-            <tr><td class="label">Gejala Terpilih</td><td class="content">' . nl2br($data['gejala']) . '</td></tr>
-            <tr><td class="label">Hasil Gaya Belajar</td><td class="content"><strong>' . $data['hasil'] . '</strong></td></tr>
-            <tr><td class="label">Nilai CF</td><td class="content">' . round($data['nilai_cf'], 3) . '</td></tr>
+            <tr><td class="label">Nama Mahasiswa</td><td class="content">' . htmlspecialchars($nama_mahasiswa) . '</td></tr>
+            <tr><td class="label">NIM</td><td class="content">' . htmlspecialchars($nim) . '</td></tr>
+            <tr><td class="label">Waktu Diagnosa</td><td class="content">' . $waktu_diagnosa . '</td></tr>
+            <tr><td class="label">Gaya Belajar</td><td class="content"><strong>' . $data['gaya_belajar'] . '</strong></td></tr>
+            <tr><td class="label">Deskripsi</td><td class="content">' . $detail['deskripsi'] . '</td></tr>
             <tr><td class="label">Rekomendasi</td><td class="content">' . $detail['rekomendasi'] . '</td></tr>
         </table>
     </div>
 </body>
-</html>';
+</html>
+';
 
+// Generate PDF
 $mpdf = new Mpdf(['margin_top' => 20, 'margin_bottom' => 20, 'margin_left' => 15, 'margin_right' => 15]);
-$mpdf->SetTitle("Hasil Diagnosa - " . $data['nama_mahasiswa']);
+$mpdf->SetTitle("Hasil Diagnosa - " . $nama_mahasiswa);
 $mpdf->WriteHTML($html);
-$mpdf->Output("diagnosa_{$data['nama_mahasiswa']}.pdf", 'I');
+$mpdf->Output("diagnosa_{$nama_mahasiswa}.pdf", 'I');
 ?>

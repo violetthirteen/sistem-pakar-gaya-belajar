@@ -1,8 +1,23 @@
 <?php
 session_start();
-date_default_timezone_set('Asia/Jakarta'); 
+date_default_timezone_set('Asia/Jakarta');
+
+if (!isset($_SESSION['id_mahasiswa'])) {
+    header("Location: mahasiswa_login.php");
+    exit;
+}
+
+require_once 'koneksi.php';
+
+$nim  = $_SESSION['nim'];
+$nama = $_SESSION['nama'];
+
+if (!isset($_POST['gejala'])) {
+    echo "<div class='result-box'>Silakan pilih gejala terlebih dahulu.</div>";
+    exit;
+}
+
 ?>
-<?php require_once 'koneksi.php'; ?>
 <!DOCTYPE html>
 <html>
 <head>
@@ -53,29 +68,12 @@ date_default_timezone_set('Asia/Jakarta');
         }
     </style>
 </head>
-<?php
-date_default_timezone_set("Asia/Jakarta");
-
-// Koneksi ke database
-$koneksi = mysqli_connect("localhost", "root", "", "db_gayabelajar");
-
-if (!$koneksi) {
-    die("Koneksi gagal: " . mysqli_connect_error());
-}
-?>
-
 <body>
     <h2>Hasil Diagnosa Gaya Belajar</h2>
-    <?php
-    if (!isset($_POST['gejala']) || empty($_POST['nama'])) {
-        echo "<div class='result-box'>Silakan isi nama dan pilih gejala terlebih dahulu.</div>";
-        exit;
-    }
 
-    $nama = htmlspecialchars($_POST['nama']);
+    <?php
     $gejala_terpilih = $_POST['gejala'];
     $list_gejala_ya = [];
-
     $cf_per_gaya = [];
 
     foreach ($gejala_terpilih as $kode_gejala => $jawaban) {
@@ -107,10 +105,12 @@ if (!$koneksi) {
         $q = mysqli_query($koneksi, "SELECT * FROM gaya_belajar WHERE kode_gaya='$tertinggi'");
         $gaya = mysqli_fetch_assoc($q);
 
-        $tgl = date("Y-m-d H:i:s");
-        $gejala_ya_str = implode(", ", $list_gejala_ya);
-        mysqli_query($koneksi, "INSERT INTO riwayat_diagnosa (nama_mahasiswa, tanggal, gejala, hasil, nilai_cf)
-                                VALUES ('$nama', '$tgl', '$gejala_ya_str', '{$gaya['nama_gaya']}', '$cf_tertinggi')");
+       $tanggal = date("Y-m-d H:i:s");
+$gaya_belajar = $gaya['nama_gaya'];
+$keterangan   = $gaya['rekomendasi'];
+
+mysqli_query($koneksi, "INSERT INTO riwayat_diagnosa (nim, tanggal, gaya_belajar, keterangan)
+VALUES ('$nim', '$tanggal', '$gaya_belajar', '$keterangan')");
         $last_id = mysqli_insert_id($koneksi);
 
         echo "<div class='result-box'>
@@ -119,14 +119,14 @@ if (!$koneksi) {
             <p><strong>Nilai CF:</strong> {$cf_tertinggi}</p>
             <p><strong>Deskripsi:</strong> {$gaya['deskripsi']}</p>
             <p><strong>Rekomendasi:</strong> {$gaya['rekomendasi']}</p>
-            <a class='btn' href='cetak_pdf.php?id={$last_id}' target='_blank'>Cetak PDF</a>
+            <a class='btn' href='cetak_pdf.php?id={$last_id}' target='_blank'>🖨 Cetak PDF</a>
         </div>";
 
         echo "<h4>Detail Perhitungan CF:</h4><table><tr><th>Gaya Belajar</th><th>Nilai CF</th></tr>";
         foreach ($cf_per_gaya as $kode => $cf) {
             $q = mysqli_query($koneksi, "SELECT * FROM gaya_belajar WHERE kode_gaya='$kode'");
             $r = mysqli_fetch_assoc($q);
-            echo "<tr><td>{$r['nama_gaya']}</td><td>".round($cf, 3)."</td></tr>";
+            echo "<tr><td>{$r['nama_gaya']}</td><td>" . round($cf, 3) . "</td></tr>";
         }
         echo "</table>";
     }
